@@ -1,9 +1,11 @@
 name: Build and dedicated smoke
 
 on:
-  push:
-    branches: [codex/neoforge-26.2]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
