@@ -1,7 +1,6 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
-    id 'net.neoforged.gradle.userdev' version '7.1.38'
+    id 'net.neoforged.moddev' version '2.0.148'
 }
 
 version = mod_version
@@ -11,23 +10,18 @@ base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
-runs {
-    configureEach {
-        systemProperty 'forge.logging.markers', 'REGISTRIES'
-        systemProperty 'forge.logging.console.level', 'debug'
-        modSource project.sourceSets.main
+neoForge {
+    version = neo_version
+    runs {
+        server {
+            server()
+            programArgument '--nogui'
+            jvmArgument '-Xmx2G'
+        }
     }
-
-    client {
-        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-    }
-
-    server {
-        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        argument '--nogui'
-    }
+    mods { coreprotect { sourceSet sourceSets.main } }
 }
 
 repositories {
@@ -35,29 +29,28 @@ repositories {
 }
 
 dependencies {
-    implementation "net.neoforged:neoforge:${neo_version}"
-
-    // Database drivers / pooling (bundled into the mod jar via jarJar).
-    implementation "org.xerial:sqlite-jdbc:${sqlite_version}"
-    implementation "com.mysql:mysql-connector-j:${mysql_version}"
-    implementation "com.zaxxer:HikariCP:${hikari_version}"
-
-    jarJar "org.xerial:sqlite-jdbc:[${sqlite_version},)"
-    jarJar "com.mysql:mysql-connector-j:[${mysql_version},)"
-    jarJar "com.zaxxer:HikariCP:[${hikari_version},)"
-
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
+    jarJar(implementation("org.xerial:sqlite-jdbc:${sqlite_version}")) {
+        version { strictly "[${sqlite_version},4.0)"; prefer sqlite_version }
+    }
+    jarJar(implementation("com.mysql:mysql-connector-j:${mysql_version}")) {
+        version { strictly "[${mysql_version},10.0)"; prefer mysql_version }
+    }
+    jarJar(implementation("com.zaxxer:HikariCP:${hikari_version}")) {
+        version { strictly "[${hikari_version},8.0)"; prefer hikari_version }
+    }
+    testImplementation platform('org.junit:junit-bom:6.1.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-test {
-    useJUnitPlatform()
-}
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
+
+test { useJUnitPlatform(); testLogging { exceptionFormat = 'full' } }
 
 tasks.withType(ProcessResources).configureEach {
     var replaceProperties = [
             minecraft_version      : minecraft_version,
-            minecraft_version_range: minecraft_version_range,
             neo_version            : neo_version,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
@@ -74,4 +67,16 @@ tasks.withType(ProcessResources).configureEach {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+sourceSets {
+    testmod {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+tasks.register('testmodJar', Jar) {
+    from sourceSets.testmod.output
+    archiveFileName = 'coreprotect-test.jar'
+    destinationDirectory = layout.buildDirectory.dir('testmods')
 }

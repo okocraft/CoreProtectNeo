@@ -3,6 +3,7 @@ package net.coreprotect.listener;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.neoforge.NeoPlatform;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.BlockEntityData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -13,6 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
@@ -21,6 +23,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 
 import java.util.Map;
 import java.util.UUID;
@@ -29,9 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Registers the NeoForge event handlers that feed the consumer queue.
  *
- * <p>Every handler mirrors one of the original plugin's Bukkit listeners; further listeners
- * (containers, entity kills, item transactions, hoppers, dispensers, natural block changes...)
- * are ported in the following batch.
+ * <p>Player block changes, sessions, chat, item tosses, entity deaths and container menus are
+ * observed here. Mod-driven bulk edits require their own integration path.
  */
 public class ListenerHandler {
 
@@ -66,8 +68,8 @@ public class ListenerHandler {
         // Nothing to unregister yet.
     }
 
-    @SubscribeEvent
-    public void onBlockBreak(BlockEvent.BreakEvent event) {
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onBlockBreak(BreakBlockEvent event) {
         if (event.isCanceled() || !(event.getPlayer() instanceof ServerPlayer player)) {
             return;
         }
@@ -76,10 +78,11 @@ public class ListenerHandler {
         }
         final BlockPos pos = event.getPos();
         final BlockState state = event.getState();
-        Queue.queueBlockBreak(player, level, pos, state);
+        Queue.queueBlockBreak(player, level, pos, state,
+                BlockEntityData.capture(level.getBlockEntity(pos), level.registryAccess()));
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.isCanceled() || !(event.getEntity() instanceof ServerPlayer player)) {
             return;
@@ -88,7 +91,13 @@ public class ListenerHandler {
             return;
         }
         final BlockPos pos = event.getPos();
-        Queue.queueBlockPlace(player, level, pos, event.getPlacedBlock());
+        final BlockState replaced = event.getBlockSnapshot().getState();
+        if (!replaced.isAir()) {
+            Queue.queueBlockBreak(player, level, pos, replaced,
+                    BlockEntityData.encode(event.getBlockSnapshot().getTag()));
+        }
+        Queue.queueBlockPlace(player, level, pos, event.getPlacedBlock(),
+                BlockEntityData.capture(level.getBlockEntity(pos), level.registryAccess()));
     }
 
     @SubscribeEvent
@@ -107,8 +116,11 @@ public class ListenerHandler {
         Queue.queueSession(player, level, player.blockPosition(), SESSION_LOGOUT);
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onServerChat(ServerChatEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         final ServerPlayer player = event.getPlayer();
         if (player == null) {
             return;
@@ -117,8 +129,11 @@ public class ListenerHandler {
     }
 
     /** Remembers which container block the player right-clicks, so the open/close diff knows the position. */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.isCanceled()) {
+            return;
+        }
         if (!(event.getEntity() instanceof ServerPlayer player) || !(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
@@ -129,7 +144,7 @@ public class ListenerHandler {
         final BlockPos pos = event.getPos();
 
         // Inspector: right-clicking a block prints its history.
-        final String inspectorKey = player.getGameProfile().getName().toLowerCase(java.util.Locale.ROOT);
+        final String inspectorKey = player.getGameProfile().name().toLowerCase(java.util.Locale.ROOT);
         if (Boolean.TRUE.equals(net.coreprotect.config.ConfigHandler.inspecting.get(inspectorKey))) {
             final long gameTime = level.getGameTime();
             final Long lastTick = LAST_INSPECT_TICK.get(player.getUUID());
@@ -147,7 +162,7 @@ public class ListenerHandler {
     /** Prints the block history of a position for the inspector. */
     private void showBlockHistory(ServerPlayer player, ServerLevel level, BlockPos pos) {
         final var rows = net.coreprotect.database.Lookup.performPositionLookup(
-                level.dimension().location().toString(), pos.getX(), pos.getY(), pos.getZ(), 20);
+                level.dimension().identifier().toString(), pos.getX(), pos.getY(), pos.getZ(), 20);
 
         net.coreprotect.utility.Chat.sendMessage(player, net.coreprotect.utility.Color.WHITE
                 + "----- " + net.coreprotect.utility.Color.DARK_AQUA
@@ -181,7 +196,7 @@ public class ListenerHandler {
             return;
         }
         OPEN_CONTAINERS.put(player.getUUID(), new ContainerSnapshot(
-                level.dimension().location().toString(), pos, level, readContainer(container)));
+                level.dimension().identifier().toString(), pos, level, readContainer(container)));
     }
 
     @SubscribeEvent
@@ -203,8 +218,11 @@ public class ListenerHandler {
     }
 
     /** Logs items a player throws on the ground. */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onItemToss(ItemTossEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         final net.minecraft.world.entity.player.Player tossedBy = event.getPlayer();
         final ItemEntity itemEntity = event.getEntity();
         if (!(tossedBy instanceof ServerPlayer player) || itemEntity == null
@@ -217,8 +235,11 @@ public class ListenerHandler {
     }
 
     /** Logs entity deaths (player kills, mob kills and natural deaths). */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onLivingDeath(LivingDeathEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         final LivingEntity entity = event.getEntity();
         if (entity == null || entity.level().isClientSide() || !(entity.level() instanceof ServerLevel level)) {
             return;

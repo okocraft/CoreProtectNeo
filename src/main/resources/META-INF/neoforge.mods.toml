@@ -9,5 +9,5 @@ displayName="${mod_name}"
 authors="Intelli"
 description='''
 Provides block protection for your server.
-NeoForge 1.21.1 port of the CoreProtect plugin.
+NeoForge 26.2 port of the CoreProtect plugin.
 '''

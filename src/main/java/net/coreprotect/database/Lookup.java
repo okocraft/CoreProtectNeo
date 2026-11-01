@@ -31,7 +31,7 @@ public final class Lookup {
      * @param action    block action (0 = broken, 1 = placed)
      */
     public record BlockRow(long rowId, int time, String user, String world, int x, int y, int z,
-                           int typeId, String blockData, int action) {
+                           int typeId, String blockData, byte[] blockEntity, int action) {
 
         public String blockName() {
             final String name = MaterialUtils.getBlockName(typeId);
@@ -53,9 +53,24 @@ public final class Lookup {
     public static List<BlockRow> performBlockLookup(int userId, String worldName, long timeStart, long timeEnd,
                                                    List<Integer> actions, int radius, int originX, int originZ,
                                                    int limit, int offset) {
+        return queryBlocks(userId, worldName, timeStart, timeEnd, actions, radius, originX, originZ,
+                limit, offset, null);
+    }
+
+    /** Selects only changes in the state needed for rollback or restore. */
+    public static List<BlockRow> performRollbackLookup(int userId, String worldName, long timeStart, long timeEnd,
+                                                      List<Integer> actions, int radius, int originX, int originZ,
+                                                      int limit, boolean restore) {
+        return queryBlocks(userId, worldName, timeStart, timeEnd, actions, radius, originX, originZ,
+                limit, 0, restore);
+    }
+
+    private static List<BlockRow> queryBlocks(int userId, String worldName, long timeStart, long timeEnd,
+                                              List<Integer> actions, int radius, int originX, int originZ,
+                                              int limit, int offset, Boolean restore) {
         final List<BlockRow> rows = new ArrayList<>();
         final StringBuilder sql = new StringBuilder(
-                "SELECT rowid,time,user,wid,x,y,z,type,data,blockdata,action FROM ")
+                "SELECT rowid,time,user,wid,x,y,z,type,data,meta,blockdata,action FROM ")
                 .append(ConfigHandler.prefix).append("block WHERE 1=1");
 
         if (userId > 0) {
@@ -83,7 +98,11 @@ public final class Lookup {
             }
             sql.append(")");
         }
-        sql.append(" ORDER BY time DESC LIMIT ? OFFSET ?");
+        if (restore != null) {
+            sql.append(" AND rolled_back = ?");
+        }
+        sql.append(restore != null && restore ? " ORDER BY time ASC, rowid ASC" : " ORDER BY time DESC, rowid DESC")
+                .append(" LIMIT ? OFFSET ?");
 
         try (Connection connection = Database.getConnection(false)) {
             if (connection == null) {
@@ -114,6 +133,9 @@ public final class Lookup {
                         statement.setInt(index++, action);
                     }
                 }
+                if (restore != null) {
+                    statement.setInt(index++, restore ? 1 : 0);
+                }
                 statement.setInt(index++, limit);
                 statement.setInt(index, offset);
 
@@ -130,6 +152,7 @@ public final class Lookup {
                                 resultSet.getInt("z"),
                                 typeId,
                                 BlockUtils.byteDataToString(resultSet.getBytes("blockdata"), typeId),
+                                resultSet.getBytes("meta"),
                                 resultSet.getInt("action")));
                     }
                 }
@@ -151,7 +174,7 @@ public final class Lookup {
             return rows;
         }
 
-        final String sql = "SELECT rowid,time,user,wid,x,y,z,type,data,blockdata,action FROM "
+        final String sql = "SELECT rowid,time,user,wid,x,y,z,type,data,meta,blockdata,action FROM "
                 + ConfigHandler.prefix + "block WHERE wid = ? AND x = ? AND y = ? AND z = ?"
                 + " ORDER BY time DESC LIMIT ?";
 
@@ -178,6 +201,7 @@ public final class Lookup {
                                 resultSet.getInt("z"),
                                 typeId,
                                 BlockUtils.byteDataToString(resultSet.getBytes("blockdata"), typeId),
+                                resultSet.getBytes("meta"),
                                 resultSet.getInt("action")));
                     }
                 }
@@ -189,26 +213,33 @@ public final class Lookup {
         return rows;
     }
 
-    /** Marks rows as rolled back so a second rollback does not touch them again. */
-    public static void markRolledBack(List<Long> rowIds) {
+    /** Changes only rows in the expected state, allowing rollback and restore to be repeated safely. */
+    public static int markRolledBack(List<Long> rowIds, boolean restore) {
         if (rowIds == null || rowIds.isEmpty()) {
-            return;
+            return 0;
         }
         try (Connection connection = Database.getConnection(false)) {
             if (connection == null) {
-                return;
+                return 0;
             }
             try (PreparedStatement statement = connection.prepareStatement(
-                    "UPDATE " + ConfigHandler.prefix + "block SET rolled_back = 1 WHERE rowid = ?")) {
+                    "UPDATE " + ConfigHandler.prefix + "block SET rolled_back = ? WHERE rowid = ? AND rolled_back = ?")) {
                 for (Long rowId : rowIds) {
-                    statement.setLong(1, rowId);
+                    statement.setInt(1, restore ? 0 : 1);
+                    statement.setLong(2, rowId);
+                    statement.setInt(3, restore ? 1 : 0);
                     statement.addBatch();
                 }
-                statement.executeBatch();
+                int updated = 0;
+                for (int count : statement.executeBatch()) {
+                    updated += count == java.sql.Statement.SUCCESS_NO_INFO ? 1 : Math.max(0, count);
+                }
+                return updated;
             }
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return 0;
         }
     }
 }

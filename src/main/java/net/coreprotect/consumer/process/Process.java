@@ -92,6 +92,7 @@ public class Process {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 
@@ -107,13 +108,14 @@ public class Process {
                 final int userId = resolveUser(connection, entry);
                 final int worldId = Queue.getWorldId(entry.world());
                 BlockStatement.insert(statement, count++, entry.time(), userId, worldId,
-                        entry.x(), entry.y(), entry.z(), entry.materialId(), 0, null,
+                        entry.x(), entry.y(), entry.z(), entry.materialId(), 0, entry.blob(),
                         entry.blockData(), entry.action(), 0);
             }
             statement.executeBatch();
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 
@@ -135,6 +137,7 @@ public class Process {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 
@@ -162,6 +165,7 @@ public class Process {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 
@@ -185,6 +189,7 @@ public class Process {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 
@@ -208,6 +213,7 @@ public class Process {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 
@@ -226,6 +232,7 @@ public class Process {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 
@@ -240,11 +247,14 @@ public class Process {
             if (userId < 1) {
                 userId = UserStatement.insert(connection, entry.user());
             }
+            if (userId < 1) {
+                throw new IllegalStateException("Could not resolve user id for " + entry.user());
+            }
             return userId;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
-            return 0;
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 

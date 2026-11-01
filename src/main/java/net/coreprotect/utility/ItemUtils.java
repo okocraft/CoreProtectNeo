@@ -7,9 +7,8 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import net.coreprotect.neoforge.NeoPlatform;
@@ -72,10 +71,10 @@ public final class ItemUtils {
         try {
             CompoundTag tag = NbtIo.readCompressed(new java.io.ByteArrayInputStream(data), NbtAccounter.unlimitedHeap());
             if (single && tag.contains("item")) {
-                return decodeStack(tag.getCompound("item"), registryAccess);
+                return decodeStack(tag.getCompoundOrEmpty("item"), registryAccess);
             }
             if (tag.contains("items")) {
-                return decodeStacks(tag.getList("items", Tag.TAG_COMPOUND), registryAccess);
+                return decodeStacks(tag.getListOrEmpty("items"), registryAccess);
             }
         }
         catch (Exception e) {
@@ -98,7 +97,7 @@ public final class ItemUtils {
     }
 
     private static ItemStack decodeStack(CompoundTag tag, RegistryAccess registryAccess) {
-        byte[] bytes = tag.getByteArray("stream");
+        byte[] bytes = tag.getByteArray("stream").orElseGet(() -> new byte[0]);
         if (bytes.length == 0) {
             return ItemStack.EMPTY;
         }
@@ -131,7 +130,7 @@ public final class ItemUtils {
     private static ItemStack[] decodeStacks(net.minecraft.nbt.ListTag list, RegistryAccess registryAccess) {
         ItemStack[] stacks = new ItemStack[list.size()];
         for (int i = 0; i < list.size(); i++) {
-            stacks[i] = decodeStack(list.getCompound(i), registryAccess);
+            stacks[i] = decodeStack(list.getCompoundOrEmpty(i), registryAccess);
         }
         return stacks;
     }
@@ -149,12 +148,13 @@ public final class ItemUtils {
             return null;
         }
         try {
-            CompoundTag tag = new CompoundTag();
-            tag.putString("type", net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+            TagValueOutput outputTag = TagValueOutput.createWithContext(ProblemReporter.DISCARDING,
+                    entity.level().registryAccess());
+            outputTag.putString("type", net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
                     .getKey(entity.getType()).toString());
-            entity.saveWithoutId(tag);
+            entity.saveWithoutId(outputTag);
             ByteArrayOutputStream output = new ByteArrayOutputStream();
-            NbtIo.writeCompressed(tag, output);
+            NbtIo.writeCompressed(outputTag.buildResult(), output);
             return output.toByteArray();
         }
         catch (Exception e) {

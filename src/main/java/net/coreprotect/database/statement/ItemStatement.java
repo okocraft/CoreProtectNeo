@@ -33,6 +33,7 @@ public class ItemStatement {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 }

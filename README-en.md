@@ -4,10 +4,10 @@
 
 Chinese documentation: [README.md](README.md)
 
-> A NeoForge 1.21.1 port of CoreProtect 24.1: block protection, action logging, lookups and rollbacks.
+> A NeoForge 26.2 port of CoreProtect 24.1: action logging, lookups and rollbacks.
 >
-> Configuration keys, language files (14 locales), database schema, commands and message text all
-> match the original plugin.
+> The database tables and many configuration and command names follow the original plugin.
+> NeoForge metadata has its own encoding and is not interchangeable with Bukkit object data.
 
 ---
 
@@ -15,14 +15,13 @@ Chinese documentation: [README.md](README.md)
 
 The original CoreProtect is a Paper/Spigot plugin. This project ports it to NeoForge:
 
-- **Original core kept**: database layer, write queue, language phrases, config keys, SQL statements
-  and column order are all taken from the original plugin.
+- **Original data model adapted**: table names, most columns, language phrases and config keys
+  follow the original plugin, with NeoForge-specific item and block-entity metadata.
 - **Platform layer replaced**: Bukkit events became NeoForge events, and the Bukkit world/item/block
   APIs were replaced with Minecraft/NeoForge APIs.
-- **Identical messages**: every command response comes from the original `Phrase` entries and
-  `lang/*.yml` files.
+- **Messages**: most command responses use the original `Phrase` entries and `lang/*.yml` files.
 
-modid: `coreprotect` | version: `24.1-neoforge` | package: `net.coreprotect`
+modid: `coreprotect` | version: `24.1-neoforge-26.2` | package: `net.coreprotect`
 
 ---
 
@@ -30,9 +29,9 @@ modid: `coreprotect` | version: `24.1-neoforge` | package: `net.coreprotect`
 
 | Item | Requirement |
 |---|---|
-| Minecraft | 1.21.1 |
-| NeoForge | 21.1.228 or newer |
-| Java | 21 |
+| Minecraft | 26.2 |
+| NeoForge | 26.2.0.88 |
+| Java | 25 |
 | Server | **Required** — all logging and commands run server side |
 | Client | Optional — the mod has no client-only features |
 | Database | Built-in SQLite (default), MySQL optional |
@@ -41,7 +40,7 @@ modid: `coreprotect` | version: `24.1-neoforge` | package: `net.coreprotect`
 
 ## 3. Installation and data folder
 
-1. Put `coreprotect-24.1-neoforge.jar` into the server's `mods` folder.
+1. Put `coreprotect-24.1-neoforge-26.2.jar` into the server's `mods` folder.
 2. Start the server once. A `coreprotect/` folder is created in the server directory:
 
 | File / folder | Purpose |
@@ -57,10 +56,20 @@ modid: `coreprotect` | version: `24.1-neoforge` | package: `net.coreprotect`
 
 ## 4. Differences from the original
 
-The following features are not ported yet and do not affect the core logging, lookup and rollback
-functionality:
+This port is under development. Build and SQLite contract tests cover block-state encoding,
+block-entity snapshot storage, and database rollback/restore row selection. An isolated NeoForge
+26.2 server smoke test also covers chest inventory and block-property rollback/restore, including
+replacement of an occupied block. Make a backup before testing with an existing CoreProtect database.
+
+Known limits:
 
 - WorldEdit and FAWE change logging (no equivalent plugin ecosystem on NeoForge)
+- Custom mod changes, including DQM spells that bypass NeoForge player block events, are not logged
+  by the current listeners. This has not yet been tested with DQM.
+- Existing rows with Bukkit block-entity metadata cannot be restored with NeoForge metadata.
+  The rollback skips block-entity placement when it cannot read a NeoForge snapshot.
+- The server smoke test uses NeoForge fake-player events. DQM spell paths, real player commands,
+  MySQL, and migration from Bukkit databases remain untested.
 - bStats metrics (the port sends no telemetry at all)
 - AdvancedChests compatibility
 - API classes: `LookupFilter`, `LookupOptions`, `UsernameAPI` — they need Bukkit `Material`/`World`
@@ -79,31 +88,24 @@ functionality:
 gradlew build
 ```
 
-Output: `build/libs/coreprotect-24.1-neoforge.jar`
+Output: `build/libs/coreprotect-24.1-neoforge-26.2.jar`
 
 Build environment:
 
 | Component | Version |
 |---|---|
-| NeoGradle userdev | 7.1.38 |
-| NeoForge | 21.1.228 |
-| Gradle wrapper | 9.2.1 |
-| JDK | 21 |
+| ModDevGradle | 2.0.148 |
+| NeoForge | 26.2.0.88 |
+| Gradle wrapper | 9.8.0 |
+| JDK | 25 |
 | Database drivers | sqlite-jdbc 3.53.0.0, mysql-connector-j 9.1.0, HikariCP 7.0.2 — bundled into the mod jar via jarJar |
 
 ---
 
-## 6. Porting progress
+## 6. Verification
 
-| Stage | Content | Status |
-|---|---|---|
-| 1 | Project skeleton, language files, platform independent code | Done |
-| 2 | Configuration system and database layer (tables, connection pool, statements) | Done |
-| 3 | Queue and consumer engine, block/session/chat logging | Done |
-| 4 | Container transactions, item and entity kill logging | Done |
-| 5 | Lookup engine, rollback and restore, `/co` command set | Done |
-| 6 | Inspector `/co i`, purge `/co purge` | Done |
-| 7 | Lookup pagination, `/co tp`, item pickups | Done |
-| 8 | Natural changes, hoppers and dispensers, command logging, API layer, signs and skulls | Not started |
-
-Compile status: `javac errors: 0`, 74 Java files under `src/main/java`.
+`gradlew build testmodJar` runs the SQLite/NBT contract tests. `node src/test/node/server-smoke.mjs`
+installs a fresh NeoForge server under `build/smoke`, exercises block logging and in-world
+rollback/restore, then restarts it to verify saved history. The server test also verifies that
+canceled break/place events produce no rows and that a temporary database failure keeps queued
+actions for a later retry. It uses an isolated loopback server on port 25586.

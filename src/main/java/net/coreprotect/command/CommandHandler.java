@@ -20,6 +20,7 @@ import net.coreprotect.utility.VersionUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permissions;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
@@ -32,8 +33,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  */
 public final class CommandHandler {
 
-    /** Permission level required for administrative commands (matches the plugin's "default: op"). */
-    private static final int ADMIN_LEVEL = 2;
+    /** Permission required for administrative commands (the previous level 2). */
+    private static final net.minecraft.server.permissions.Permission ADMIN_PERMISSION = Permissions.COMMANDS_GAMEMASTER;
 
     private CommandHandler() {
         throw new IllegalStateException("Utility class");
@@ -48,64 +49,64 @@ public final class CommandHandler {
                     .then(Commands.literal("version")
                             .executes(context -> version(context.getSource())))
                     .then(Commands.literal("status")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .executes(context -> status(context.getSource())))
                     .then(Commands.literal("reload")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .executes(context -> reload(context.getSource())))
                     .then(Commands.literal("lookup")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> lookup(context.getSource(),
                                             StringArgumentType.getString(context, "params")))))
                     .then(Commands.literal("l")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> lookup(context.getSource(),
                                             StringArgumentType.getString(context, "params")))))
                     .then(Commands.literal("rollback")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> applyRollback(context.getSource(),
                                             StringArgumentType.getString(context, "params"), false))))
                     .then(Commands.literal("rb")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> applyRollback(context.getSource(),
                                             StringArgumentType.getString(context, "params"), false))))
                     .then(Commands.literal("restore")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> applyRollback(context.getSource(),
                                             StringArgumentType.getString(context, "params"), true))))
                     .then(Commands.literal("rs")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> applyRollback(context.getSource(),
                                             StringArgumentType.getString(context, "params"), true))))
                     .then(Commands.literal("inspect")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .executes(context -> toggleInspect(context.getSource()))
                             .then(Commands.literal("on")
                                     .executes(context -> setInspect(context.getSource(), true)))
                             .then(Commands.literal("off")
                                     .executes(context -> setInspect(context.getSource(), false))))
                     .then(Commands.literal("i")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .executes(context -> toggleInspect(context.getSource())))
                     .then(Commands.literal("purge")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .executes(context -> purge(context.getSource(), ""))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> purge(context.getSource(),
                                             StringArgumentType.getString(context, "params")))))
                     .then(Commands.literal("tp")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> teleport(context.getSource(),
                                             StringArgumentType.getString(context, "params")))))
                     .then(Commands.literal("teleport")
-                            .requires(source -> source.hasPermission(ADMIN_LEVEL))
+                            .requires(source -> source.permissions().hasPermission(ADMIN_PERMISSION))
                             .then(Commands.argument("params", StringArgumentType.greedyString())
                                     .executes(context -> teleport(context.getSource(),
                                             StringArgumentType.getString(context, "params"))))));
@@ -133,14 +134,14 @@ public final class CommandHandler {
 
             final var key = net.minecraft.resources.ResourceKey.create(
                     net.minecraft.core.registries.Registries.DIMENSION,
-                    net.minecraft.resources.ResourceLocation.parse(world));
-            final var level = player.server.getLevel(key);
+                    net.minecraft.resources.Identifier.parse(world));
+            final var level = source.getServer().getLevel(key);
             if (level == null) {
                 Chat.sendMessage(source, Color.RED + Phrase.build(Phrase.WORLD_NOT_FOUND));
                 return 0;
             }
 
-            player.teleportTo(level, x, y, z, player.getYRot(), player.getXRot());
+            player.teleportTo(level, x, y, z, java.util.Set.of(), player.getYRot(), player.getXRot(), false);
             Chat.sendMessage(source, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- Teleported to "
                     + x + ", " + y + ", " + z + " in " + world + ".");
             return 1;
@@ -157,7 +158,7 @@ public final class CommandHandler {
             Chat.sendMessage(source, Color.RED + Phrase.build(Phrase.COMMAND_CONSOLE));
             return 0;
         }
-        final String key = player.getGameProfile().getName().toLowerCase(Locale.ROOT);
+        final String key = player.getGameProfile().name().toLowerCase(Locale.ROOT);
         return setInspect(source, !Boolean.TRUE.equals(ConfigHandler.inspecting.get(key)));
     }
 
@@ -167,7 +168,7 @@ public final class CommandHandler {
             Chat.sendMessage(source, Color.RED + Phrase.build(Phrase.COMMAND_CONSOLE));
             return 0;
         }
-        ConfigHandler.inspecting.put(player.getGameProfile().getName().toLowerCase(Locale.ROOT), enabled);
+        ConfigHandler.inspecting.put(player.getGameProfile().name().toLowerCase(Locale.ROOT), enabled);
         Chat.sendMessage(source, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- "
                 + (enabled ? "Inspector enabled. Right-click a block to view its history."
                            : "Inspector disabled."));
@@ -267,9 +268,13 @@ public final class CommandHandler {
 
         final String userFilter = readParameter(args, "u:");
         final int radius = readRadius(args);
-        final String world = source.getLevel() != null ? source.getLevel().dimension().location().toString() : null;
+        final String world = source.getLevel() != null ? source.getLevel().dimension().identifier().toString() : null;
         final int userId = userFilter == null ? 0
                 : ConfigHandler.playerIdCache.getOrDefault(userFilter.toLowerCase(Locale.ROOT), 0);
+        if (userFilter != null && userId == 0) {
+            Chat.sendMessage(source, Color.WHITE + Phrase.build(Phrase.NO_RESULTS));
+            return 0;
+        }
         final int originX = source.getPlayer() != null ? source.getPlayer().getBlockX() : 0;
         final int originZ = source.getPlayer() != null ? source.getPlayer().getBlockZ() : 0;
         final int page = readPage(args);
@@ -319,19 +324,23 @@ public final class CommandHandler {
 
         final String userFilter = readParameter(args, "u:");
         final int radius = readRadius(args);
-        final String world = player.serverLevel().dimension().location().toString();
+        final String world = player.level().dimension().identifier().toString();
         final int userId = userFilter == null ? 0
                 : ConfigHandler.playerIdCache.getOrDefault(userFilter.toLowerCase(Locale.ROOT), 0);
+        if ((userFilter != null && userId == 0) || (userFilter == null && timeStart == 0 && radius == 0)) {
+            Chat.sendMessage(source, Color.WHITE + Phrase.build(Phrase.NO_RESULTS));
+            return 0;
+        }
 
-        final List<Lookup.BlockRow> rows = Lookup.performBlockLookup(userId, world, timeStart, timeEnd,
-                actions, radius, player.getBlockX(), player.getBlockZ(), 5000, 0);
+        final List<Lookup.BlockRow> rows = Lookup.performRollbackLookup(userId, world, timeStart, timeEnd,
+                actions, radius, player.getBlockX(), player.getBlockZ(), 5000, restore);
 
         if (rows.isEmpty()) {
             Chat.sendMessage(source, Color.WHITE + Phrase.build(Phrase.NO_RESULTS));
             return 0;
         }
 
-        final Rollback.Result result = Rollback.performBlockRollback(player.serverLevel(), rows, restore);
+        final Rollback.Result result = Rollback.performBlockRollback(player.level(), rows, restore);
         // The original uses one phrase with selectors for "rolled back" / "restored".
         final String selector = restore
                 ? net.coreprotect.language.Selector.SECOND

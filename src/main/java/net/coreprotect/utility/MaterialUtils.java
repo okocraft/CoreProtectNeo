@@ -4,7 +4,7 @@ import java.util.Locale;
 
 import net.coreprotect.config.ConfigHandler;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -30,7 +30,7 @@ public final class MaterialUtils {
         if (state == null) {
             return null;
         }
-        ResourceLocation key = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        Identifier key = BuiltInRegistries.BLOCK.getKey(state.getBlock());
         return key == null ? null : key.toString();
     }
 
@@ -43,19 +43,19 @@ public final class MaterialUtils {
         if (name == null) {
             return null;
         }
-        ResourceLocation key = ResourceLocation.tryParse(name);
+        Identifier key = Identifier.tryParse(name);
         if (key == null || !BuiltInRegistries.BLOCK.containsKey(key)) {
             return null;
         }
-        return BuiltInRegistries.BLOCK.get(key);
+        return BuiltInRegistries.BLOCK.getValue(key);
     }
 
     public static Item getItem(String name) {
-        ResourceLocation key = ResourceLocation.tryParse(name);
+        Identifier key = Identifier.tryParse(name);
         if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
             return null;
         }
-        return BuiltInRegistries.ITEM.get(key);
+        return BuiltInRegistries.ITEM.getValue(key);
     }
 
     /** Item registry name of a stack, e.g. "minecraft:diamond_pickaxe". */
@@ -63,7 +63,7 @@ public final class MaterialUtils {
         if (stack == null || stack.isEmpty()) {
             return null;
         }
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier key = BuiltInRegistries.ITEM.getKey(stack.getItem());
         return key == null ? null : key.toString();
     }
 

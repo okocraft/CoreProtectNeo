@@ -4,9 +4,9 @@
 
 English documentation: [README-en.md](README-en.md)
 
-> CoreProtect 24.1 的 NeoForge 1.21.1 移植版：方块保护、操作记录、查询与回滚。
+> CoreProtect 24.1 的 NeoForge 26.2 移植版：操作记录、查询与回滚。
 >
-> 配置项、语言文件（14 种语言，含简繁中文）、数据库表结构、指令与提示文本均与原版插件对齐。
+> 数据库表、许多配置与指令名称沿用原版。NeoForge 元数据编码与 Bukkit 对象数据不通用。
 
 ---
 
@@ -14,11 +14,11 @@ English documentation: [README-en.md](README-en.md)
 
 原版 CoreProtect 是 Paper/Spigot 插件，本项目把它移植到 NeoForge 平台：
 
-- 保留原版内核：数据库层、写入队列、语言短语、配置键名、SQL 语句与列顺序均沿用原版
+- 改编原版数据模型：数据库表名、主要字段、语言短语和配置键沿用原版，物品与方块实体元数据使用 NeoForge 编码
 - 替换平台层：Bukkit 事件改为 NeoForge 事件，Bukkit 的世界/物品/方块 API 改为 Minecraft/NeoForge API
-- 提示与原版一致：所有指令反馈都取自原版的 Phrase 词条与 lang 语言文件
+- 指令反馈主要使用原版 Phrase 词条与 lang 语言文件
 
-modid：`coreprotect`　版本：`24.1-neoforge`　包名：`net.coreprotect`
+modid：`coreprotect`　版本：`24.1-neoforge-26.2`　包名：`net.coreprotect`
 
 ---
 
@@ -26,9 +26,9 @@ modid：`coreprotect`　版本：`24.1-neoforge`　包名：`net.coreprotect`
 
 | 项目 | 要求 |
 |---|---|
-| Minecraft | 1.21.1 |
-| NeoForge | 21.1.228 及以上 |
-| Java | 21 |
+| Minecraft | 26.2 |
+| NeoForge | 26.2.0.88 |
+| Java | 25 |
 | 服务端 | 必需（所有记录与指令都在服务端执行） |
 | 客户端 | 可选（无客户端专属功能） |
 | 数据库 | 内置 SQLite（默认），可选 MySQL |
@@ -37,7 +37,7 @@ modid：`coreprotect`　版本：`24.1-neoforge`　包名：`net.coreprotect`
 
 ## 三、安装与数据目录
 
-1. 把 `coreprotect-24.1-neoforge.jar` 放进服务端 mods 目录；
+1. 把 `coreprotect-24.1-neoforge-26.2.jar` 放进服务端 mods 目录；
 2. 启动一次服务器，会自动创建数据目录 `coreprotect/`，位置在服务器根目录下，内容如下：
 
 | 文件 / 目录 | 说明 |
@@ -53,9 +53,13 @@ modid：`coreprotect`　版本：`24.1-neoforge`　包名：`net.coreprotect`
 
 ## 四、与原版的差异
 
-以下功能暂未移植，但不影响核心的记录、查询与回滚：
+此移植版仍在开发中。构建与 SQLite 测试覆盖方块状态、方块实体快照及回滚／恢复的数据库行状态。隔离的 NeoForge 26.2 服务端测试还验证了箱子物品、方块属性及替换已有方块后的回滚／恢复。测试现有 CoreProtect 数据库前请先备份。DQM 法术、真人指令、MySQL 与 Bukkit 数据迁移尚未验证。
+
+以下功能或兼容性尚未验证：
 
 - WorldEdit 与 FAWE 的改动记录（NeoForge 端无对应插件体系）
+- 绕过 NeoForge 玩家方块事件的模组改动（包括 DQM 法术）目前不会被记录；尚未用 DQM 验证
+- 旧 Bukkit 方块实体元数据无法由 NeoForge 恢复；缺少可读快照时会跳过该方块实体的放置
 - bStats 遥测（移植版不发送任何遥测数据）
 - AdvancedChests 兼容
 - API 包：`LookupFilter`、`LookupOptions`、`UsernameAPI`，需要把 Bukkit 的 Material 与 World 换成注册名与维度 ID
@@ -71,31 +75,23 @@ modid：`coreprotect`　版本：`24.1-neoforge`　包名：`net.coreprotect`
 gradlew build
 ```
 
-产物为 `build/libs/coreprotect-24.1-neoforge.jar`。
+产物为 `build/libs/coreprotect-24.1-neoforge-26.2.jar`。
 
 构建环境：
 
 | 组件 | 版本 |
 |---|---|
-| NeoGradle userdev | 7.1.38 |
-| NeoForge | 21.1.228 |
-| Gradle wrapper | 9.2.1 |
-| JDK | 21 |
+| ModDevGradle | 2.0.148 |
+| NeoForge | 26.2.0.88 |
+| Gradle wrapper | 9.8.0 |
+| JDK | 25 |
 | 数据库驱动 | sqlite-jdbc 3.53.0.0、mysql-connector-j 9.1.0、HikariCP 7.0.2，通过 jarJar 打包进模组 |
 
 ---
 
-## 六、移植进度
+## 六、验证
 
-| 阶段 | 内容 | 状态 |
-|---|---|---|
-| 1 | 工程骨架、语言文件、无平台依赖代码 | 已完成 |
-| 2 | 配置系统与数据库层（建表、连接池、语句） | 已完成 |
-| 3 | 队列与消费者引擎，方块、会话、聊天记录 | 已完成 |
-| 4 | 容器事务、物品、实体击杀记录 | 已完成 |
-| 5 | 查询引擎、回滚与还原、`/co` 指令集 | 已完成 |
-| 6 | 检查器 `/co i`、清理 `/co purge` | 已完成 |
-| 7 | 查询分页、`/co tp`、物品拾取 | 已完成 |
-| 8 | 自然变化、漏斗与发射器、指令记录、API 层、告示牌与头颅 | 待开始 |
-
-编译状态：`javac errors: 0`，`src/main/java` 下共 74 个 Java 文件。
+`gradlew build testmodJar` 运行 SQLite/NBT 契约测试。`node src/test/node/server-smoke.mjs`
+在 `build/smoke` 中安装隔离 NeoForge 服务端，测试方块记录、游戏世界中的回滚／恢复，
+并重启检查历史记录。服务端测试还检查取消事件不会产生记录，以及数据库暂时不可用后队列可重试。
+测试服务端仅监听本机 25586 端口。

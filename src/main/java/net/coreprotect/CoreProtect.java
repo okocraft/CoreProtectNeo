@@ -21,7 +21,7 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 
 /**
- * CoreProtect for NeoForge 1.21.1.
+ * CoreProtect for NeoForge 26.2.
  *
  * <p>The lifecycle mirrors the original plugin: language phrases are loaded, the listener handler
  * registers the event handlers, the configuration and database are initialised and the consumer

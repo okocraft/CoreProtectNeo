@@ -8,7 +8,6 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -62,7 +61,7 @@ public final class NeoPlatform {
         }
         List<String> names = new ArrayList<>();
         for (ServerLevel level : current.getAllLevels()) {
-            names.add(level.dimension().location().toString());
+            names.add(level.dimension().identifier().toString());
         }
         return names;
     }
@@ -73,7 +72,7 @@ public final class NeoPlatform {
     }
 
     public static String playerName(ServerPlayer player) {
-        return player.getGameProfile().getName();
+        return player.getGameProfile().name();
     }
 
     public static String playerUuid(ServerPlayer player) {
@@ -105,7 +104,4 @@ public final class NeoPlatform {
         LOGGER.info(component.getString());
     }
 
-    public static boolean hasPermission(CommandSourceStack source, int defaultLevel) {
-        return source.hasPermission(defaultLevel);
-    }
 }

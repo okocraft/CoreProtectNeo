@@ -11,8 +11,8 @@ import net.minecraft.world.level.block.state.properties.Property;
 /**
  * Block-state encoding helpers of the NeoForge port.
  *
- * <p>The database {@code blockdata} column stores the block state properties as a comma separated
- * list of ids from the {@code blockdata_map} table (the same scheme the original plugin used).
+ * <p>New rows store the complete registry name and properties. Existing rows that use numeric
+ * property ids from {@code blockdata_map} remain readable.
  */
 public final class BlockUtils {
 
@@ -25,11 +25,7 @@ public final class BlockUtils {
             return null;
         }
 
-        String encoded = encodeBlockData(string, type);
-        if (encoded == null || encoded.isEmpty()) {
-            return null;
-        }
-        return encoded.getBytes(StandardCharsets.UTF_8);
+        return string.getBytes(StandardCharsets.UTF_8);
     }
 
     public static String byteDataToString(byte[] data, int type) {
@@ -37,27 +33,7 @@ public final class BlockUtils {
             return null;
         }
         String decoded = new String(data, StandardCharsets.UTF_8);
-        return decodeBlockData(decoded, type);
-    }
-
-    /**
-     * Converts "minecraft:oak_log[axis=y]" into a comma separated list of property ids.
-     */
-    private static String encodeBlockData(String string, int type) {
-        String blockKey = MaterialUtils.getBlockName(type);
-        if (blockKey == null || !string.startsWith(blockKey + "[") || !string.endsWith("]")) {
-            return string;
-        }
-
-        String substring = string.substring(blockKey.length() + 1, string.length() - 1);
-        ArrayList<String> ids = new ArrayList<>();
-        for (String property : substring.split(",")) {
-            int id = MaterialUtils.getBlockdataId(property, true);
-            if (id > -1) {
-                ids.add(Integer.toString(id));
-            }
-        }
-        return String.join(",", ids);
+        return decoded.indexOf(':') >= 0 ? decoded : decodeBlockData(decoded, type);
     }
 
     /**
@@ -115,14 +91,14 @@ public final class BlockUtils {
             properties = blockData.substring(bracket + 1, blockData.length() - 1);
         }
 
-        Block block = MaterialUtils.getType(MaterialUtils.getMaterialId(name, true));
+        Block block = MaterialUtils.getType(MaterialUtils.getMaterialId(name, false));
         if (block == null) {
-            net.minecraft.resources.ResourceLocation key = net.minecraft.resources.ResourceLocation.tryParse(name);
+            net.minecraft.resources.Identifier key = net.minecraft.resources.Identifier.tryParse(name);
             if (key == null) {
                 return null;
             }
-            block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(key);
-            if (block == net.minecraft.world.level.block.Blocks.AIR && !"minecraft:air".equals(name)) {
+            block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(key);
+            if (block == null || (block == net.minecraft.world.level.block.Blocks.AIR && !"minecraft:air".equals(name))) {
                 return null;
             }
         }
