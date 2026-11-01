@@ -3,7 +3,7 @@ package net.coreprotect.consumer;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
 import net.coreprotect.consumer.process.Process;
@@ -29,7 +29,7 @@ public class Consumer {
     public static volatile boolean interrupt = false;
     public static volatile boolean isPaused = false;
 
-    private static final LinkedBlockingQueue<ConsumerEntry> QUEUE = new LinkedBlockingQueue<>();
+    private static final LinkedBlockingDeque<ConsumerEntry> QUEUE = new LinkedBlockingDeque<>();
     private static Thread consumerThread;
     private static volatile boolean running = false;
 
@@ -93,7 +93,10 @@ public class Consumer {
                 List<ConsumerEntry> batch = new ArrayList<>(DRAIN_SIZE);
                 batch.add(first);
                 QUEUE.drainTo(batch, DRAIN_SIZE - 1);
-                writeBatch(batch);
+                if (!writeBatch(batch)) {
+                    returnBatch(batch);
+                    Thread.sleep(1000L);
+                }
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -115,7 +118,10 @@ public class Consumer {
                 break;
             }
             try {
-                writeBatch(batch);
+                if (!writeBatch(batch)) {
+                    returnBatch(batch);
+                    break;
+                }
             }
             catch (Throwable throwable) {
                 ErrorReporter.report(throwable);
@@ -124,12 +130,18 @@ public class Consumer {
         }
     }
 
-    private static void writeBatch(List<ConsumerEntry> batch) {
+    private static void returnBatch(List<ConsumerEntry> batch) {
+        for (int i = batch.size() - 1; i >= 0; i--) {
+            QUEUE.addFirst(batch.get(i));
+        }
+    }
+
+    private static boolean writeBatch(List<ConsumerEntry> batch) {
         Connection connection = null;
         try {
             connection = Database.getConnection(true);
             if (connection == null) {
-                return;
+                return false;
             }
 
             final boolean isMySQL = net.coreprotect.config.Config.getGlobal().MYSQL;
@@ -139,6 +151,7 @@ public class Consumer {
             Process.process(connection, batch, BATCH_SIZE);
 
             connection.commit();
+            return true;
         }
         catch (Throwable throwable) {
             ErrorReporter.report(throwable);
@@ -150,6 +163,7 @@ public class Consumer {
                     // ignore
                 }
             }
+            return false;
         }
         finally {
             transacting = false;

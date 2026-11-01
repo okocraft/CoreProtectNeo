@@ -34,6 +34,7 @@ public class ContainerStatement {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 }

@@ -1,10 +1,8 @@
 package net.coreprotect.database.statement;
 
 import java.sql.PreparedStatement;
-import java.util.List;
 
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class BlockStatement {
@@ -13,14 +11,9 @@ public class BlockStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, List<Object> meta, String blockData, int action, int rolledBack) {
+    public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, byte[] meta, String blockData, int action, int rolledBack) {
         try {
             byte[] bBlockData = BlockUtils.stringToByteData(blockData, type);
-            byte[] byteData = null;
-
-            if (meta != null) {
-                byteData = ItemUtils.convertByteData(meta);
-            }
 
             preparedStmt.setInt(1, time);
             preparedStmt.setInt(2, id);
@@ -30,7 +23,7 @@ public class BlockStatement {
             preparedStmt.setInt(6, z);
             preparedStmt.setInt(7, type);
             preparedStmt.setInt(8, data);
-            preparedStmt.setObject(9, byteData);
+            preparedStmt.setBytes(9, meta);
             preparedStmt.setObject(10, bBlockData);
             preparedStmt.setInt(11, action);
             preparedStmt.setInt(12, rolledBack);
@@ -42,6 +35,7 @@ public class BlockStatement {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            throw new IllegalStateException("Database write failed", e);
         }
     }
 }

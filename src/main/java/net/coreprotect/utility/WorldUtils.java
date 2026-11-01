@@ -18,7 +18,7 @@ public final class WorldUtils {
 
     /** Dimension id of a level. */
     public static String getWorldName(ServerLevel level) {
-        return level == null ? null : level.dimension().location().toString();
+        return level == null ? null : level.dimension().identifier().toString();
     }
 
     /** World name stored in the {@code world} table. */

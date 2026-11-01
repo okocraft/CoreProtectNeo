@@ -9,6 +9,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permissions;
 
 /**
  * NeoForge replacement for the Bukkit-based chat helper of the original plugin.
@@ -58,7 +59,9 @@ public final class Chat {
                         color = null;
                         formats.clear();
                     }
-                    else if (formatting.isFormat()) {
+                    else if (formatting == ChatFormatting.OBFUSCATED || formatting == ChatFormatting.BOLD
+                            || formatting == ChatFormatting.STRIKETHROUGH || formatting == ChatFormatting.UNDERLINE
+                            || formatting == ChatFormatting.ITALIC) {
                         if (!formats.contains(formatting)) {
                             formats.add(formatting);
                         }
@@ -153,7 +156,7 @@ public final class Chat {
         sendConsoleMessage(Color.DARK_AQUA + "[CoreProtect] " + Color.WHITE + Color.stripColor(message));
 
         for (ServerPlayer player : NeoPlatform.onlinePlayers()) {
-            if (player.hasPermissions(2)) {
+            if (player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)) {
                 if (user != null && user.getEntity() == player) {
                     continue;
                 }

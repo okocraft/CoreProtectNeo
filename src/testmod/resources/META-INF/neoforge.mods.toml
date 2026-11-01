@@ -1,0 +1,16 @@
+modLoader="javafml"
+loaderVersion="[11,)"
+license="GPL-3.0"
+
+[[mods]]
+modId="coreprotect_test"
+version="1.0"
+displayName="CoreProtect integration test"
+description='''Exercises block logging and rollback on an isolated server.'''
+
+[[dependencies.coreprotect_test]]
+modId="coreprotect"
+type="required"
+versionRange="[24.1,)"
+ordering="AFTER"
+side="SERVER"

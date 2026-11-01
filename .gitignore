@@ -3,6 +3,7 @@ build/
 out/
 run/
 runs/
+logs/
 .idea/
 *.iml
 *.ipr

@@ -59,7 +59,7 @@ public class Queue {
     }
 
     /** Logs a block being broken by a player. */
-    public static void queueBlockBreak(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+    public static void queueBlockBreak(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state, byte[] blockEntity) {
         if (!Config.getGlobal().BLOCK_BREAK || state == null || MaterialUtils.isAir(state)) {
             return;
         }
@@ -69,12 +69,13 @@ public class Queue {
                 .position(worldName(level), pos.getX(), pos.getY(), pos.getZ())
                 .material(materialId)
                 .blockData(MaterialUtils.getBlockDataStringWithName(state))
+                .blob(blockEntity)
                 .action(ACTION_REMOVED)
                 .build());
     }
 
     /** Logs a block being placed by a player. */
-    public static void queueBlockPlace(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+    public static void queueBlockPlace(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state, byte[] blockEntity) {
         if (!Config.getGlobal().BLOCK_PLACE || state == null || MaterialUtils.isAir(state)) {
             return;
         }
@@ -84,6 +85,7 @@ public class Queue {
                 .position(worldName(level), pos.getX(), pos.getY(), pos.getZ())
                 .material(materialId)
                 .blockData(MaterialUtils.getBlockDataStringWithName(state))
+                .blob(blockEntity)
                 .action(ACTION_PLACED)
                 .build());
     }
@@ -106,7 +108,7 @@ public class Queue {
         }
         Consumer.add(ConsumerEntry.builder(ProcessType.CHAT, currentTime())
                 .user(playerName(player), playerUuid(player))
-                .position(worldName(player.serverLevel()), player.getBlockX(), player.getBlockY(), player.getBlockZ())
+                .position(worldName(player.level()), player.getBlockX(), player.getBlockY(), player.getBlockZ())
                 .message(message)
                 .build());
     }
@@ -117,7 +119,7 @@ public class Queue {
         }
         Consumer.add(ConsumerEntry.builder(ProcessType.COMMAND, currentTime())
                 .user(playerName(player), playerUuid(player))
-                .position(worldName(player.serverLevel()), player.getBlockX(), player.getBlockY(), player.getBlockZ())
+                .position(worldName(player.level()), player.getBlockX(), player.getBlockY(), player.getBlockZ())
                 .message(command)
                 .build());
     }
@@ -230,7 +232,7 @@ public class Queue {
     }
 
     static String playerName(ServerPlayer player) {
-        return player == null ? null : player.getGameProfile().getName();
+        return player == null ? null : player.getGameProfile().name();
     }
 
     static String playerUuid(ServerPlayer player) {
@@ -238,6 +240,6 @@ public class Queue {
     }
 
     static String worldName(ServerLevel level) {
-        return level == null ? null : level.dimension().location().toString();
+        return level == null ? null : level.dimension().identifier().toString();
     }
 }
