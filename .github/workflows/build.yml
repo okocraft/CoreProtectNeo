@@ -17,6 +17,6 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and test
-        run: ./gradlew build testmodJar --no-daemon --max-workers=2 --console=plain
+        run: bash ./gradlew build testmodJar --no-daemon --max-workers=2 --console=plain
       - name: Boot isolated NeoForge server twice
         run: node src/test/node/server-smoke.mjs
